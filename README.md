@@ -1,3 +1,5 @@
 # hardenning-lks24
 
-```bash hei
+```bash
+sudo cp -v /bin/ls /bin/mkdir /bin/cp /var/chroot/bin/
+```
