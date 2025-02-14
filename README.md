@@ -1,4 +1,4 @@
-# hardenning-lks24
+# hardenning-seleksi-lks25
 
 ### 1.1 Document Host Information
 1. Menulis teks ke dua file (/etc/issue untuk login konsol & /etc/issue.net untuk SSH).
@@ -41,50 +41,95 @@ Melihat apakah port sudah berhasil di tutup atau belum.
 nc -zv {ip address} {port}
 ```
 
-### 1.3 Hardening Closed Unusual Open Port
-1. Membuat direktori untuk chroot /var/chroot
-mkdir -p digunakan untuk membuat direktori /var/chroot, yang akan menjadi lingkungan chroot.
+### 1.3 Hardening CHROOT Shell
+1. Membuat Direktori CHROOT 
+Membuat direktori CHROOT adalah langkah pertama dalam mengisolasi lingkungan pengguna. Direktori ini akan menjadi root filesystem baru bagi pengguna yang dibatasi. Dengan menggunakan perintah `mkdir -p`, kita memastikan bahwa direktori akan dibuat tanpa error meskipun sudah ada. Direktori `/var/chroot` dipilih karena lokasi ini umum digunakan untuk keperluan isolasi seperti ini.  
+
 ```bash
 sudo mkdir -p /var/chroot
-```
-2. Buat struktur direktori dasar dalam Chroot
-- /bin → Menyimpan perintah dasar seperti bash, ls, nano, dll.
-- /lib & /lib64 → Menyimpan library yang dibutuhkan oleh program dalam CHROOT.
-- /usr → Menyimpan tambahan binary dan library lainnya.
-- /home → Direktori untuk pengguna dalam CHROOT.
-- /etc → Menyimpan file konfigurasi sistem.
-- /dev → Menyimpan perangkat virtual seperti /dev/null.
-- /proc & /sys → Menyediakan informasi sistem dalam CHROOT.
-- /tmp → Direktori sementara untuk penyimpanan file sementara.
+```  
+
+2. Menambahkan Pengguna yang Akan Dibatasi ke CHROOT
+Pengguna yang akan dibatasi aksesnya perlu dibuat terlebih dahulu. Perintah `adduser` digunakan untuk membuat pengguna baru, dalam hal ini `chrootuser`. Setelah itu, direktori home untuk pengguna tersebut harus dibuat di dalam lingkungan CHROOT. Ini memastikan bahwa pengguna hanya memiliki akses ke direktori home mereka yang terisolasi. Perintah `chown` digunakan untuk mengubah kepemilikan direktori home tersebut agar sesuai dengan pengguna yang bersangkutan.  
+
 ```bash
-mkdir -p /var/chroot/{bin,lib,lib64,usr,home,etc,dev,proc,sys,tmp}
-```
-3. chmod direktori /tmp
-Opsi 1777 memastikan bahwa semua pengguna bisa membaca, menulis, dan mengeksekusi file dalam /tmp, tapi selain owner menjadi read only.
+sudo adduser chrootuser
+sudo mkdir -p /var/chroot/home/chrootuser
+sudo chown chrootuser:chrootuser /var/chroot/home/chrootuser
+```  
+
+3. Menyalin Binary yang Diperlukan
+Agar pengguna dapat menjalankan perintah dasar di dalam lingkungan CHROOT, binary seperti `bash`, `ls`, `mkdir`, dan `nano` perlu disalin ke dalam direktori CHROOT. Binary ini adalah program inti yang akan digunakan oleh pengguna untuk berinteraksi dengan sistem.  
+
 ```bash
-chmod 1777 /var/chroot/tmp
-```
-4. Copy direktori bash
-bash adalah shell utama yang akan digunakan untuk CHROOT nanti
+sudo cp --parents /bin/bash /var/chroot/
+sudo cp --parents /bin/ls /var/chroot/
+sudo cp --parents /bin/mkdir /var/chroot/
+sudo cp --parents /bin/nano /var/chroot/
+sudo cp --parents /bin/cat /var/chroot/
+sudo cp --parents /bin/rm /var/chroot/
+sudo cp --parents /usr/bin/id /var/chroot/
+```  
+
+---
+
+4. Menyalin Library yang Diperlukan 
+Setelah binary disalin, library yang diperlukan oleh binary tersebut juga harus disalin agar perintah dapat berfungsi dengan baik. Library seperti `libc`, `libtinfo`, dan lainnya adalah dependensi yang dibutuhkan oleh binary untuk berjalan.  
+
 ```bash
-cp --parents /bin/bash /var/chroot/
+sudo cp --parents /lib/x86_64-linux-gnu/libtinfo.so.6 /var/chroot/
+sudo cp --parents /lib/x86_64-linux-gnu/libdl.so.2 /var/chroot/
+sudo cp --parents /lib/x86_64-linux-gnu/libc.so.6 /var/chroot/
+sudo cp --parents /lib64/ld-linux-x86-64.so.2 /var/chroot/
+sudo cp --parents /lib/x86_64-linux-gnu/libselinux.so.1 /var/chroot/
+sudo cp --parents /lib/x86_64-linux-gnu/libpcre2-8.so.0 /var/chroot/
+sudo cp --parents /lib/x86_64-linux-gnu/libncursesw.so.6 /var/chroot/
 ```
-5. Menyalin command dasar yang diperlukan untuk pengujian
+
+5. Menyalin Terminfo agar Nano Bisa Bekerja
+Aplikasi seperti `nano` memerlukan file `terminfo` untuk dapat berinteraksi dengan terminal dengan benar. File-file ini berisi informasi tentang kemampuan terminal, seperti cara menangani warna atau kursor. Tanpa file ini, `nano` mungkin tidak akan berfungsi dengan baik.  
+
 ```bash
-cp --parents /bin/{ls,cat,mkdir,rmdir,rm,cp,mv,echo,nano,sh,chmod,touch,pwd,grep} /var/chroot/
-```
-6. Menyalin library yang dibutuhkan di dalam CHROOT
+sudo mkdir -p /var/chroot/usr/share/terminfo
+sudo cp -r /usr/share/terminfo/* /var/chroot/usr/share/terminfo/
+```  
+
+
+6. Membuat Struktur Direktori dalam CHROOT
+Beberapa direktori seperti `dev`, `proc`, dan `sys` diperlukan agar sistem dapat berfungsi dengan baik di dalam CHROOT. Direktori ini akan di-mount ke dalam CHROOT untuk menyediakan akses ke perangkat, proses, dan sistem file yang diperlukan.  
+
 ```bash
-cp --parents /lib/x86_64-linux-gnu/{libtinfo.so.6,libc.so.6,libselinux.so.1,libpcre2-8.so.0,libncursesw.so.6} /var/chroot/
-cp --parents /lib64/ld-linux-x86-64.so.2 /var/chroot/
-```
-7. Mount filesystem yang dibutuhkan
-```bash
+sudo mkdir -p /var/chroot/{dev,proc,sys,home,tmp,usr,bin,etc,lib,lib64}
 sudo mount -o bind /dev /var/chroot/dev
 sudo mount -o bind /proc /var/chroot/proc
 sudo mount -o bind /sys /var/chroot/sys
-```
-8. Masuk ke dalam Chroot
+```  
+
+
+7. Mengonfigurasi SSH agar Menggunakan CHROOT untuk Pengguna Tertentu
+Untuk membatasi pengguna tertentu ke lingkungan CHROOT, kita perlu mengedit file konfigurasi SSH (`sshd_config`). Dengan menambahkan blok `Match User`, kita dapat menentukan bahwa pengguna tertentu (dalam hal ini `chrootuser`) hanya akan memiliki akses ke direktori CHROOT.  
+
 ```bash
-sudo chroot /var/chroot /bin/bash
+sudo nano /etc/ssh/sshd_config
+```  
+
+Tambahkan atau ubah baris berikut:  
 ```
+Match User chrootuser
+    ChrootDirectory /var/chroot
+    X11Forwarding no
+    AllowTcpForwarding no
+```  
+
+Setelah itu, restart layanan SSH untuk menerapkan perubahan.  
+
+```bash
+sudo systemctl restart ssh
+```  
+
+8. Pengujian CHROOT dan SSH
+Setelah konfigurasi selesai, kita dapat menguji apakah pengguna `chrootuser` benar-benar terbatas pada lingkungan CHROOT. Coba login ke server menggunakan SSH sebagai `chrootuser`.  
+
+```bash
+ssh chrootuser@127.0.0.1
+``` 
