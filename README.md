@@ -42,43 +42,41 @@ nc -zv {ip address} {port}
 ```
 
 ### 1.3 Hardening Closed Unusual Open Port
-1. Buat direktori Chroot
+1. Membuat direktori untuk chroot /var/chroot
+mkdir -p digunakan untuk membuat direktori /var/chroot, yang akan menjadi lingkungan chroot.
 ```bash
 sudo mkdir -p /var/chroot
 ```
 2. Buat struktur direktori dasar dalam Chroot
+- /bin → Menyimpan perintah dasar seperti bash, ls, nano, dll.
+- /lib & /lib64 → Menyimpan library yang dibutuhkan oleh program dalam CHROOT.
+- /usr → Menyimpan tambahan binary dan library lainnya.
+- /home → Direktori untuk pengguna dalam CHROOT.
+- /etc → Menyimpan file konfigurasi sistem.
+- /dev → Menyimpan perangkat virtual seperti /dev/null.
+- /proc & /sys → Menyediakan informasi sistem dalam CHROOT.
+- /tmp → Direktori sementara untuk penyimpanan file sementara.
 ```bash
-sudo mkdir -p /var/chroot/{bin,lib,lib64,etc,dev,usr,proc,sys,home,tmp}
+mkdir -p /var/chroot/{bin,lib,lib64,usr,home,etc,dev,proc,sys,tmp}
 ```
-3. Copy binary penting ke dalam Chroot
+3. chmod direktori /tmp
+Opsi 1777 memastikan bahwa semua pengguna bisa membaca, menulis, dan mengeksekusi file dalam /tmp, tapi selain owner menjadi read only.
 ```bash
-sudo cp -v /bin/bash /var/chroot/bin/
-sudo cp -v /bin/ls /var/chroot/bin/
-sudo cp -v /bin/mkdir /var/chroot/bin/
-sudo cp -v /bin/cp /var/chroot/bin/
-sudo cp -v /bin/rm /var/chroot/bin/
-sudo cp -v /bin/nano /var/chroot/bin/
-sudo cp -v /bin/cat /var/chroot/bin/
+chmod 1777 /var/chroot/tmp
 ```
-4. Copy pustaka yang diperlukan
+4. Copy direktori bash
+bash adalah shell utama yang akan digunakan untuk CHROOT nanti
 ```bash
-sudo mkdir -p /var/chroot/lib/x86_64-linux-gnu
-sudo cp -v /lib/x86_64-linux-gnu/libtinfo.so.6 /var/chroot/lib/x86_64-linux-gnu/
-sudo cp -v /lib/x86_64-linux-gnu/libdl.so.2 /var/chroot/lib/x86_64-linux-gnu/
-sudo cp -v /lib/x86_64-linux-gnu/libc.so.6 /var/chroot/lib/x86_64-linux-gnu/
-sudo cp -v /lib/x86_64-linux-gnu/libpcre2-8.so.0 /var/chroot/lib/x86_64-linux-gnu/
+cp --parents /bin/bash /var/chroot/
 ```
-5. Copy dynamic linker (ld-linux)
+5. Menyalin command dasar yang diperlukan untuk pengujian
 ```bash
-sudo mkdir -p /var/chroot/lib64
-sudo cp -v /lib64/ld-linux-x86-64.so.2 /var/chroot/lib64/
+cp --parents /bin/{ls,cat,mkdir,rmdir,rm,cp,mv,echo,nano,sh,chmod,touch,pwd,grep} /var/chroot/
 ```
-6. Konfigurasi device di dalam Chroot
+6. Menyalin library yang dibutuhkan di dalam CHROOT
 ```bash
-sudo mknod -m 666 /var/chroot/dev/null c 1 3
-sudo mknod -m 666 /var/chroot/dev/tty c 5 0
-sudo mknod -m 666 /var/chroot/dev/zero c 1 5
-sudo mknod -m 666 /var/chroot/dev/random c 1 8
+cp --parents /lib/x86_64-linux-gnu/{libtinfo.so.6,libc.so.6,libselinux.so.1,libpcre2-8.so.0,libncursesw.so.6} /var/chroot/
+cp --parents /lib64/ld-linux-x86-64.so.2 /var/chroot/
 ```
 7. Mount filesystem yang dibutuhkan
 ```bash
