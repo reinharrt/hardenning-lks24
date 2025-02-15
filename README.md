@@ -329,22 +329,22 @@ Tambahkan bagian ini di dalam `<VirtualHost>`:
 
 ```apache
 <IfModule mod_headers.c>
-     HSTS: Memaksa HTTPS (aktif hanya jika sudah pakai SSL)
+     #HSTS: Memaksa HTTPS
     Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
 
-     Mencegah Clickjacking
+     #Mencegah Clickjacking
     Header always set X-Frame-Options "DENY"
 
-     Mencegah MIME Sniffing
+     #Mencegah MIME Sniffing
     Header always set X-Content-Type-Options "nosniff"
 
-     Mengontrol Referer Header
+     #Mengontrol Referer Header
     Header always set Referrer-Policy "strict-origin-when-cross-origin"
 
-     Mengatur izin API browser (Permissions Policy)
+     #Mengatur izin API browser (Permissions Policy)
     Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
 
-     Mencegah XSS & injeksi (CSP)
+     #Mencegah XSS & injeksi (CSP)
     Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none';"
 </IfModule>
 ```
