@@ -177,7 +177,7 @@ Ubah bagian ini, agar directory listing mati.
     Options -Indexes
 </Directory>
 ```
-
+---
 ### 1.6 IDS (Snort)
 1. Konfigurasi Snort
 Pastikan Snort sudah terinstal dan dikonfigurasi dengan benar seperti yang dijelaskan sebelumnya. Berikut adalah ringkasan konfigurasi:
@@ -216,8 +216,6 @@ Pastikan Snort sudah terinstal dan dikonfigurasi dengan benar seperti yang dijel
      ```
      Ganti `<interface>` dengan nama interface jaringan Anda (misalnya, `eth0` atau `ens33`).
 
----
-
 2. Pengujian Serangan
 
 SQL Injection
@@ -238,25 +236,22 @@ SQL Injection
      [**] [1:1000001:1] SQL Injection Detected [**]
      ```
 
----
-
-#lind SQL Injection
-1. **Gunakan `curl` untuk Mengirim Payload Blind SQL Injection**  
+Blind SQL Injection
+1. Gunakan `curl` untuk Mengirim Payload Blind SQL Injection
    - Kirim payload Blind SQL Injection:
      ```bash
      curl -X GET "http://<IP_SERVER>/index.php?id=1%20AND%20SLEEP(5)"
      ```
 
-2. **Periksa Log Snort**  
+2. Periksa Log Snort  
    - Snort akan mendeteksi payload Blind SQL Injection:
      ```
      [**] [1:1000002:1] Blind SQL Injection Detected [**]
      ```
 
----
 
-#### **Brute Force Attack**
-1. **Gunakan `hydra` untuk Simulasi Brute Force**  
+Brute Force Attack
+1. Gunakan `hydra` untuk Simulasi Brute Force
    - Instal `hydra` jika belum ada:
      ```bash
      sudo apt install hydra
@@ -274,24 +269,148 @@ SQL Injection
 
 ---
 
-#### **Cross-Site Scripting (XSS)**
-1. **Gunakan `curl` untuk Mengirim Payload XSS**  
+Cross-Site Scripting (XSS)
+1. Gunakan `curl` untuk Mengirim Payload XSS  
    - Kirim payload XSS:
      ```bash
      curl -X GET "http://<IP_SERVER>/index.php?name=<script>alert('XSS')</script>"
      ```
 
-2. **Periksa Log Snort**  
-   - Snort akan mendeteksi payload XSS:
+2. Periksa Log Snort
+   - Snort akan mendeteksi payload XSS
      ```
      [**] [1:1000004:1] XSS Attack Detected [**]
      ```
 
----
-
-### **3. Analisis Hasil Pengujian**
+3. Analisis Hasil Pengujian
 - Semua alert yang dihasilkan oleh Snort akan dicatat di `/var/log/snort/alert`.
 - Anda dapat memeriksa log tersebut untuk memastikan bahwa Snort berhasil mendeteksi serangan:
   ```bash
   sudo cat /var/log/snort/alert
   ```
+
+### 1.7 Analisis dan Patching Security Header Web
+ 1. Install Apache Web Server
+Jika Apache belum terinstal, jalankan perintah berikut:  
+
+```bash
+sudo apt update && sudo apt upgrade -y
+sudo apt install apache2 -y
+```
+
+Setelah instalasi selesai, pastikan Apache berjalan:  
+
+```bash
+sudo systemctl enable apache2
+sudo systemctl start apache2
+sudo systemctl status apache2
+```
+
+ 2. Install Modul yang Dibutuhkan
+Apache perlu modul tambahan untuk menangani header dan SSL. Aktifkan modul-modul berikut:  
+
+```bash
+sudo a2enmod headers
+sudo a2enmod ssl
+sudo systemctl restart apache2
+```
+
+
+ 3. Buat atau Edit Virtual Host
+Buka konfigurasi Virtual Host default:  
+
+```bash
+sudo nano /etc/apache2/sites-available/000-default.conf
+```
+
+Tambahkan security headers di dalam blok `<VirtualHost *:80>` atau buat konfigurasi khusus jika menggunakan HTTPS (`/etc/apache2/sites-available/default-ssl.conf`).  
+
+Tambahkan bagian ini di dalam `<VirtualHost>`:
+
+```apache
+<IfModule mod_headers.c>
+     HSTS: Memaksa HTTPS (aktif hanya jika sudah pakai SSL)
+    Header always set Strict-Transport-Security "max-age=31536000; includeSubDomains; preload"
+
+     Mencegah Clickjacking
+    Header always set X-Frame-Options "DENY"
+
+     Mencegah MIME Sniffing
+    Header always set X-Content-Type-Options "nosniff"
+
+     Mengontrol Referer Header
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+
+     Mengatur izin API browser (Permissions Policy)
+    Header always set Permissions-Policy "geolocation=(), microphone=(), camera=()"
+
+     Mencegah XSS & injeksi (CSP)
+    Header always set Content-Security-Policy "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; font-src 'self'; frame-ancestors 'none';"
+</IfModule>
+```
+
+Simpan (`CTRL + X`, lalu `Y`, dan tekan `Enter`).
+
+
+ 4. Restart Apache
+Setelah mengedit konfigurasi, restart Apache:
+
+```bash
+sudo systemctl restart apache2
+```
+
+---
+
+ 5. Verifikasi Header Security
+Cek apakah header sudah aktif dengan perintah:  
+
+```bash
+curl -I http://localhost
+```
+
+Atau jika pakai HTTPS:
+
+```bash
+curl -I https://localhost --insecure
+```
+
+
+ (Opsional) 6. Install dan Konfigurasi SSL (HTTPS)
+Jika ingin menggunakan HTTPS, install Let's Encrypt untuk mendapatkan SSL gratis:  
+
+```bash
+sudo apt install certbot python3-certbot-apache -y
+```
+
+Kemudian jalankan perintah ini untuk mendapatkan sertifikat SSL secara otomatis:  
+
+```bash
+sudo certbot --apache
+```
+
+Ikuti petunjuk di layar untuk menyelesaikan instalasi.
+
+Setelah selesai, uji apakah SSL sudah berjalan:  
+
+```bash
+sudo systemctl restart apache2
+curl -I https://yourdomain.com
+```
+
+ 7. Hardening Tambahan
+Untuk meningkatkan keamanan lebih lanjut:
+- Pastikan semua paket up to date:  
+  ```bash
+  sudo apt update && sudo apt upgrade -y
+  ```
+- Batasi informasi server (server signature) dengan menambahkan di `/etc/apache2/conf-available/security.conf`:  
+  ```apache
+  ServerSignature Off
+  ServerTokens Prod
+  ```
+
+Restart Apache:
+
+```bash
+sudo systemctl restart apache2
+```
