@@ -1,5 +1,5 @@
-# hardenning-seleksi-lks25
-Dokumen ini berisi kumpulan penjelasan command-command yang digunakan untuk menyelesaikan soal-soal hardening. Hardening adalah proses mengamankan sistem dengan mengurangi celah keamanan dan membatasi akses yang tidak diperlukan. Command-command di bawah ini mencakup konfigurasi CHROOT, manajemen pengguna, dan isolasi lingkungan.
+# Hardenning-seleksi-lks25
+Dokumen ini berisi kumpulan penjelasan command-command yang digunakan untuk menyelesaikan soal-soal hardening pada seleksi Lomba Kompetensi Siswa (LKS) Tahun 2025. Hardening sendiri merupakan proses mengamankan sistem dengan mengurangi celah keamanan dan membatasi akses yang tidak diperlukan.
 ---
 ### 1.1 Document Host Information
 1. Menulis teks ke dua file (/etc/issue untuk login konsol & /etc/issue.net untuk SSH).
