@@ -178,7 +178,7 @@ Ubah bagian ini, agar directory listing mati.
 </Directory>
 ```
 ---
-### 1.6 IDS (Snort)
+### 1.6 IDS (Snort) - Failed
 1. Konfigurasi Snort
 Pastikan Snort sudah terinstal dan dikonfigurasi dengan benar seperti yang dijelaskan sebelumnya. Berikut adalah ringkasan konfigurasi:
 
